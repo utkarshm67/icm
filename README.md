@@ -117,7 +117,7 @@ Use **Light mode** / **Dark mode** in the header to switch themes. The initial t
 | Port `5051` or `5173` is already in use | Check for another copy of this app running in your terminals and stop that copy with **Ctrl+C**. Do not stop unrelated processes. The frontend requires port `5173`. |
 | The page opens but incidents do not load | Confirm the backend is still running on port `5051`. Check the browser's error message and the backend terminal for details. |
 | An edit or delete reports a conflict | Someone changed the record after you loaded it. Reload it and review the latest values before trying again. |
-| Saving or loading reports a storage error | Check the backend logs, file permissions, and whether another program is locking the data file. Do not delete existing data to clear the error; see [Data storage](#data-storage). |
+| Saving or loading reports a storage error | Check the backend logs, file permissions, and whether another program is locking the data file. Do not delete existing data to clear the error; see [Back up and recover the incident store](#back-up-and-recover-the-incident-store). |
 
 To check whether the backend is responding, run this in another PowerShell terminal:
 
@@ -161,7 +161,7 @@ Files use UTF-8 with a BOM, quoted comma-separated fields, and CRLF record separ
 
 ## Data storage
 
-Data is saved to `IncidentManagement.Api\Data\incidents.json`, relative to the API content root, not the shell's current directory. The file includes a schema version, the next incident number, incidents, and notes. Back it up before modifying it manually. Do not edit it while the API is running.
+Data is saved to `IncidentManagement.Api\Data\incidents.json`, relative to the API content root, not the shell's current directory. The file includes a schema version, the next incident number, incidents, and notes. Back it up before modifying it manually; see [Back up and recover the incident store](#back-up-and-recover-the-incident-store). Do not edit it while the API is running.
 
 ### Use a separate data file (optional)
 
@@ -185,6 +185,68 @@ The API rereads the file for each operation and writes through a flushed tempora
 Each incident has a `version` number that changes when the record is updated, including when a note is added. Edits and deletes must supply the current version so they cannot silently overwrite a newer change. The browser interface handles this for you.
 
 **Deployment limitation:** this is a local, single-API-process application. The lock coordinates requests within that process only. Do not run multiple API processes against the same file or deploy to a shared/network-synchronized file store. This workspace may reside in OneDrive; avoid running it on more than one synced computer at a time. Authentication and authorization are intentionally not included; do not expose this application publicly or use it for sensitive production data without adding access control, HTTPS, and an appropriate persistence layer.
+
+### Back up and recover the incident store
+
+Atomic writes protect against a half-written file; they are **not backups**. They do not protect against deletion, bad edits, disk failure, or a sync client replacing the file. Keep copies separate from the live file.
+
+**Missing is not the same as invalid.** If the file is *absent*, the API treats it as a new empty store and creates it on the first write. If the file exists but is invalid JSON, incomplete, or incompatible, the API returns HTTP 500 and logs the error; it never silently starts empty. Moving or deleting a failed file and restarting therefore turns an error into a fresh empty store, and the next write would hide the original data's absence. Never delete or move the only copy to clear an error.
+
+#### Back up before maintenance
+
+1. Stop the API (press `Ctrl+C` in its terminal). Make sure no other API process uses the same file.
+2. Identify the effective path. If `Storage__FilePath` is set in that terminal, it is used; otherwise it is `IncidentManagement.Api\Data\incidents.json`. A relative `Storage:FilePath` resolves against the API content root (`IncidentManagement.Api`), not the current directory.
+
+   ```powershell
+   $store = if ($env:Storage__FilePath) { $env:Storage__FilePath } else { ".\IncidentManagement.Api\Data\incidents.json" }
+   $store = [System.IO.Path]::GetFullPath($store)
+   $store
+   ```
+
+3. Copy a timestamped backup to a different folder (preferably not synced), and confirm it exists and is non-empty:
+
+   ```powershell
+   $backupDir = "C:\path\to\incident-backups"
+   New-Item -ItemType Directory -Force $backupDir | Out-Null
+   $backup = Join-Path $backupDir ("incidents-{0:yyyyMMdd-HHmmss}.json" -f (Get-Date))
+   Copy-Item -LiteralPath $store -Destination $backup -ErrorAction Stop
+   (Get-Item $backup).Length
+   ```
+
+   Use `Copy-Item`, not `Move-Item`, so the original stays in place.
+
+#### Restore after corruption or a bad change
+
+1. Stop the API and read the server logs to confirm whether the file is unreadable (invalid/incompatible) or missing.
+2. Preserve the failed original by copying it, never deleting it. Keep the copy for diagnosis:
+
+   ```powershell
+   if (Test-Path -LiteralPath $store) {
+     Copy-Item -LiteralPath $store -Destination ($store + ".failed-{0:yyyyMMdd-HHmmss}" -f (Get-Date)) -ErrorAction Stop
+   }
+   ```
+
+3. Pick a known-good backup made by this application version (same `schemaVersion`; open it in a text editor and check that it is valid JSON with `schemaVersion`, `nextIncidentNumber`, and `incidents`). Do not restore a backup if you are unsure it is compatible.
+4. Restore by copying it over the store path (`$store`; the parent folder must exist):
+
+   ```powershell
+   Copy-Item -LiteralPath $backup -Destination $store -Force -ErrorAction Stop
+   ```
+
+5. Start the API and verify. Compare the incident count and a few references with what you expect from the backup, then confirm writes work:
+
+   ```powershell
+   (Invoke-RestMethod http://localhost:5051/api/incidents).Count
+   (Invoke-RestMethod http://localhost:5051/api/incidents) | Select-Object -First 5 number, title, status
+   ```
+
+   In the browser, add a note to an incident (or create a test incident) and confirm it saves and survives a refresh. If the count is 0 unexpectedly, stop the API and check the path in step 2 before writing anything; you may have started a new empty store.
+
+If no good backup exists, keep the preserved failed copy and seek help rather than recreating the file; hand-editing is a last resort and only on a copy, with the API stopped.
+
+Practice this procedure with disposable data first: set `Storage__FilePath` to a new temporary path, create a test incident, then run the backup and restore steps against that file.
+
+Atomic replacement does not make multi-process use safe. Parallel API processes against one file, and synchronized or shared stores (OneDrive, network shares), remain unsupported and can lose or conflict data regardless of backups.
 
 ## API reference (optional)
 
