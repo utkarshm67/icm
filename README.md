@@ -146,12 +146,7 @@ client\
     App.jsx          Dashboard and application state
     styles.css       Responsive layout and blue light/dark theme palettes
 tests\
-  api.test.mjs       Real HTTP integration tests using Node's built-in test runner
-  incidentCsv.test.mjs CSV formatting and spreadsheet-safety tests
-  incidentModel.test.mjs UI model defaults, labels, and constants tests
   incidentOverdue.test.mjs 24-hour overdue boundary and status exclusion tests
-  incidentService.test.mjs API client tests with mocked fetch
-  theme.test.mjs     Theme palette and contrast checks
 ```
 
 ## Export incidents
@@ -252,18 +247,12 @@ Successful reads, updates, and note additions return **200 OK**. Creation return
 
 Run these commands from the project root after installing the prerequisites and frontend dependencies. A **build** checks and prepares the code to run; **tests** automatically check expected behavior.
 
-Build the backend first; the API tests run the resulting compiled application:
+Run every committed test suite. The command stops with an error if no `*.test.mjs` files are found:
 
 ```powershell
-dotnet build .\IncidentManagement.sln
-```
-
-If the build succeeds, run the API and frontend tests:
-
-```powershell
-node --test .\tests\api.test.mjs
-node --test .\tests\incidentCsv.test.mjs .\tests\incidentModel.test.mjs .\tests\incidentService.test.mjs .\tests\theme.test.mjs
-node --test .\tests\incidentOverdue.test.mjs
+$suites = Get-ChildItem .\tests -Recurse -Filter *.test.mjs | ForEach-Object FullName
+if (-not $suites) { throw 'No test suites found under .\tests' }
+node --test $suites
 ```
 
 Build the frontend into `client\dist`:
@@ -272,9 +261,9 @@ Build the frontend into `client\dist`:
 npm --prefix .\client run build
 ```
 
-The integration suite starts its own API on an ephemeral localhost port with an isolated temporary file under `tests\.tmp`. It verifies CRUD, validation, concurrent writes, stale versions, notes, restart persistence, monotonic numbers, and corruption handling. It stops its API and removes its test data afterward, without modifying the workspace's actual incidents.
+Currently the only automated suite is `tests\incidentOverdue.test.mjs`. It runs without starting the API and asserts that active incidents become overdue at exactly 24 hours without an update, resolved and closed incidents are never overdue, a fresh update (or a future timestamp) is not overdue, and elapsed time is compared correctly across timezone offsets.
 
-The frontend suites run without starting the API: CSV tests cover column order, UTC timestamps, empty optional values, row ordering, escaping, spreadsheet-formula protection, and empty exports; model tests check UI defaults, labels, and constants; service tests use mocked `fetch` to check the API client; theme tests check the light/dark palettes and color contrast.
+Everything else (API behavior, CSV export, the API client, and theme/contrast) has no automated coverage yet and should be verified manually. Update this section and the project tree when new suites are added.
 
 ## Serve the built UI from .NET (optional)
 
