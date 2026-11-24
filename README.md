@@ -14,6 +14,7 @@ The app has two parts: a **React 19 frontend** (the interface you open in your b
 - Create, view, edit, and delete incidents with confirmation.
 - Priority, category, reporter, assignee, and status tracking.
 - Search, status/priority filters, sorting, and active/resolved views.
+- Overdue badges and red Updated timestamps for active incidents without an update for at least 24 hours.
 - Export matching incidents to CSV in the displayed sort order.
 - Timestamped incident notes and resolution/reopening timestamps.
 - Responsive layout, accessible native dialogs, and blue-accented light/dark themes.
@@ -101,6 +102,8 @@ The app loads records from `IncidentManagement.Api\Data\incidents.json`, so you 
 
 Resolved and closed incidents no longer count as active. The dashboard summarizes total, active, critical, and resolved incidents.
 
+In the incident list, active incidents (New, In progress, or On hold) show an **Overdue** badge beside a red Updated timestamp after at least 24 hours without an update. The display rechecks every minute while the app is open. Updating an incident or adding a note resets this period; Resolved and Closed incidents are never marked overdue.
+
 Use **Light mode** / **Dark mode** in the header to switch themes. The initial theme follows your system preference unless the URL includes `?scoutTheme=light` or `?scoutTheme=dark`. Switching themes with the button does not save your preference across reloads.
 
 ## Troubleshooting
@@ -145,6 +148,7 @@ tests\
   api.test.mjs       Real HTTP integration tests using Node's built-in test runner
   incidentCsv.test.mjs CSV formatting and spreadsheet-safety tests
   incidentModel.test.mjs UI model defaults, labels, and constants tests
+  incidentOverdue.test.mjs 24-hour overdue boundary and status exclusion tests
   incidentService.test.mjs API client tests with mocked fetch
   theme.test.mjs     Theme palette and contrast checks
 ```
@@ -258,6 +262,7 @@ If the build succeeds, run the API and frontend tests:
 ```powershell
 node --test .\tests\api.test.mjs
 node --test .\tests\incidentCsv.test.mjs .\tests\incidentModel.test.mjs .\tests\incidentService.test.mjs .\tests\theme.test.mjs
+node --test .\tests\incidentOverdue.test.mjs
 ```
 
 Build the frontend into `client\dist`:
