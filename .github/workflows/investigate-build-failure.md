@@ -5,8 +5,11 @@ on:
 permissions:
   contents: read
   actions: read
-  issues: write
   copilot-requests: write
+
+safe-outputs:
+  create-issue:
+    max: 1
 ---
 
 # Investigate Incident Management Build Failure
@@ -21,7 +24,7 @@ Identify the smallest appropriate change needed to resolve the failure.
 
 Explain what caused the failure and why the proposed change would resolve it.
 
-Create a GitHub issue containing:
+Create one GitHub issue using the create-issue safe output containing:
 
 - A summary of the failed workflow
 - The root cause
