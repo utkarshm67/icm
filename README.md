@@ -18,6 +18,7 @@ The app has two parts: a **React 19 frontend** (the interface you open in your b
 - Export matching incidents to CSV in the displayed sort order.
 - Timestamped incident notes and resolution/reopening timestamps.
 - Responsive layout, accessible native dialogs, and blue-accented light/dark themes.
+- About page at `/about` with the title "GitHub Copilot Demo" and the current local date, available from the main navigation.
 - Subtle dashboard entrance and hover animations that respect your system's reduced-motion preference.
 - Server-side validation and explicit API/UI error reporting.
 - Protection against overwriting someone else's changes: outdated edits and deletes are rejected.
