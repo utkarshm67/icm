@@ -145,6 +145,8 @@ tbody tr:hover { background: var(--cp-bg-elevated); }
 .priority-Medium { color: var(--cp-warning); }
 .priority-Low { color: var(--cp-success); }
 .date-cell { font-size: 11px; color: var(--cp-text-soft); }
+.date-overdue, .overdue-badge { color: var(--cp-danger); }
+.overdue-badge { margin-left: 6px; }
 .icon-button { padding: 4px 10px; border: 0; background: none; font-size: 16px; }
 .empty-state { padding: 60px 24px 72px; text-align: center; border-top: 1px solid var(--cp-border); }
 .empty-symbol { width: 56px; height: 56px; display: grid; place-items: center; margin: 0 auto 20px; border: 1px solid var(--cp-border); border-radius: 16px; background: var(--cp-bg-elevated); color: var(--cp-accent); font: 24px Consolas, monospace; }

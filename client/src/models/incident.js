@@ -3,6 +3,8 @@ export const priorities = ['Critical', 'High', 'Medium', 'Low'];
 export const categories = ['Application', 'Hardware', 'Network', 'Security', 'Access', 'Other'];
 export const label = (value) => ({ InProgress: 'In progress', OnHold: 'On hold' }[value] ?? value);
 export const isActive = (incident) => !['Resolved', 'Closed'].includes(incident.status);
+export const isOverdue = (incident, now = Date.now()) =>
+  isActive(incident) && now - new Date(incident.updatedAt).getTime() >= 24 * 60 * 60 * 1000;
 export const emptyIncident = () => ({
   title: '', description: '', priority: 'Medium', category: 'Application',
   reportedBy: '', assignedTo: '', status: 'New',

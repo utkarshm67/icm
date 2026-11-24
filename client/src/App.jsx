@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import IncidentForm from './components/IncidentForm.jsx';
 import IncidentDetail from './components/IncidentDetail.jsx';
 import Modal from './components/Modal.jsx';
-import { formatDate, isActive, label, priorities, statuses } from './models/incident.js';
+import { formatDate, isActive, isOverdue, label, priorities, statuses } from './models/incident.js';
 import { incidentService } from './services/incidentService.js';
 import { downloadIncidentCsv } from './services/incidentCsv.js';
 
@@ -20,6 +20,7 @@ export default function App() {
   const [selected, setSelected] = useState(null);
   const [sort, setSort] = useState('updated');
   const [theme, setTheme] = useState(document.documentElement.dataset.theme);
+  const [now, setNow] = useState(Date.now);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -32,6 +33,11 @@ export default function App() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    setNow(Date.now());
+    const interval = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(interval);
+  }, [incidents]);
   useEffect(() => {
     if (!notice) return;
     const timeout = setTimeout(() => setNotice(''), 5000);
@@ -118,11 +124,14 @@ export default function App() {
             : filtered.length === 0 ? <div className="empty-state"><div className="empty-symbol">#</div><h3>{incidents.length ? 'No matching incidents' : 'A fresh start for your service desk'}</h3><p>{incidents.length ? 'Try a different search or clear your filters.' : 'Create your first incident to start tracking issues and resolutions.'}</p>
               {incidents.length ? <button onClick={() => switchView('all')}>Clear filters</button> : <button className="primary" onClick={openCreate}>+ Create your first incident</button>}</div>
               : <div className="table-scroll"><table><thead><tr><th>Incident</th><th>Status</th><th>Priority</th><th>Assigned to</th><th>Updated</th><th><span className="sr-only">Details</span></th></tr></thead>
-                <tbody>{filtered.map((incident) => <tr key={incident.id}><td><button className="incident-link" onClick={() => { setSelected(incident); setError(''); setModal('detail'); }}><span className="incident-number">{incident.number} <span>{incident.category}</span></span><strong>{incident.title}</strong></button></td>
+                <tbody>{filtered.map((incident) => {
+                  const overdue = isOverdue(incident, now);
+                  return <tr key={incident.id}><td><button className="incident-link" onClick={() => { setSelected(incident); setError(''); setModal('detail'); }}><span className="incident-number">{incident.number} <span>{incident.category}</span></span><strong>{incident.title}</strong></button></td>
                   <td><span className={`badge status-${incident.status}`}>{label(incident.status)}</span></td>
                   <td><span className={`priority priority-${incident.priority}`}><span className="priority-dot" />{incident.priority}</span></td>
-                  <td>{incident.assignedTo || <span className="muted">Unassigned</span>}</td><td className="date-cell">{formatDate(incident.updatedAt)}</td>
-                  <td><button className="icon-button" aria-label={`View ${incident.number}`} onClick={() => { setSelected(incident); setError(''); setModal('detail'); }}>&#8594;</button></td></tr>)}</tbody></table></div>}
+                  <td>{incident.assignedTo || <span className="muted">Unassigned</span>}</td><td className={`date-cell${overdue ? ' date-overdue' : ''}`}>{formatDate(incident.updatedAt)}{overdue && <> <span className="badge overdue-badge" title="No update for at least 24 hours">Overdue</span></>}</td>
+                  <td><button className="icon-button" aria-label={`View ${incident.number}`} onClick={() => { setSelected(incident); setError(''); setModal('detail'); }}>&#8594;</button></td></tr>;
+                })}</tbody></table></div>}
           <footer className="panel-footer"><span>{filtered.length} of {incidents.length} incidents</span><span>Stored locally. Ready when you are.</span></footer>
         </section>
       </main>
